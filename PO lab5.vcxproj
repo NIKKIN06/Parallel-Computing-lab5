@@ -127,7 +127,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="PO lab5.cpp" />
+    <ClCompile Include="source\main.cpp" />
+    <ClCompile Include="source\server.cpp" />
+    <ClCompile Include="source\thread_pool.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="header\server.h" />
+    <ClInclude Include="header\thread_pool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
