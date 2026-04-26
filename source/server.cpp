@@ -41,7 +41,7 @@ Server::Server()
 	serverAddress.sin_port = htons(PORT);
 	serverAddress.sin_addr.s_addr = INADDR_ANY;
 
-	if (bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
+	if (::bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
 	{
 		cerr << "[Main Thread] [" << getCurrentTime() << "] Bind ERROR: " << WSAGetLastError() << "\n";
 		closesocket(serverSocket);
@@ -138,6 +138,11 @@ void Server::acceptConnection()
 
 		cout << "[Main Thread] Accepted connection from IP: " << clientIp << ", Port: " << clientPort /* << " -> Assigned Client ID: #" << currentClientId */ << "\n";
 
-		handleClient(clientSocket);
+		cout << "[Main Thread] Sending to ThreadPool.\n";
+
+		pool.add_task([this, clientSocket]()
+			{
+				this->handleClient(clientSocket);
+			});
 	}
 }

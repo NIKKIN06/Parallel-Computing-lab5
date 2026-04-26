@@ -129,7 +129,6 @@
   <ItemGroup>
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\server.cpp" />
-    <ClCompile Include="source\thread_pool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\server.h" />

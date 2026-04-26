@@ -1,6 +1,8 @@
 #pragma once
 #pragma comment(lib, "ws2_32.lib")
 
+#include "../header/thread_pool.h"
+
 #include <iostream>
 #include <WinSock2.h>
 #include <chrono>
@@ -15,6 +17,7 @@ class Server
 private:
 	int PORT = 8080;
 	SOCKET serverSocket;
+	ThreadPool pool;
 
 	std::string getCurrentTime();
 	std::string formHttpResponse(std::string statusCode, std::string content);
