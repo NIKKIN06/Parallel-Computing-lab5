@@ -10,6 +10,15 @@ std::string Server::getCurrentTime()
 	return time;
 }
 
+std::string Server::formHttpResponse(std::string statusCode, std::string content)
+{
+	return "HTTP/1.1 " + statusCode + "\r\n"
+		"Content-Length: " + to_string(content.length()) + "\r\n"
+		"Connection: close\r\n"
+		"\r\n" +
+		content;
+}
+
 Server::Server()
 {
 	WSADATA wsaData;
@@ -65,9 +74,42 @@ void Server::handleClient(SOCKET clientSocket)
 
 	if (bytesReceived > 0)
 	{
-		cout << "=== HTTP REQUEST RECEIVED ===\n";
-		cout << buffer << "\n";
-		cout << "=============================\n";
+		std::string request(buffer);
+		std::istringstream requestStream(request);
+		std::string method, path, protocol;
+
+		requestStream >> method >> path >> protocol;
+
+		cout << "[Main Thread] Request: " << method << " " << path << "\n";
+
+		if (path == "/")
+		{
+			path = "/index.html";
+		}
+
+		std::string filePath = "./public" + path;
+
+		ifstream file(filePath, ios::in | ios::binary);
+		std::string httpResponse;
+
+		if (file.is_open())
+		{
+			std::ostringstream fileContentStream;
+			fileContentStream << file.rdbuf();
+			std::string fileContent = fileContentStream.str();
+			file.close();
+
+			httpResponse = formHttpResponse("200 OK", fileContent);
+		}
+		else
+		{
+			std::string errorHtml = "<html><body><h1>404 Not Found</h1></body></html>";
+			httpResponse = formHttpResponse("404 Not Found", errorHtml);
+
+			cout << "[Main Thread] File not found. Sending 404.\n";
+		}
+
+		send(clientSocket, httpResponse.c_str(), httpResponse.size(), 0);
 	}
 
 	closesocket(clientSocket);

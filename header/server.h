@@ -7,6 +7,8 @@
 #include <string>
 #include <format>
 #include <WS2tcpip.h>
+#include <sstream>
+#include <fstream>
 
 class Server
 {
@@ -15,6 +17,7 @@ private:
 	SOCKET serverSocket;
 
 	std::string getCurrentTime();
+	std::string formHttpResponse(std::string statusCode, std::string content);
 public:
 	Server();
 	~Server();
