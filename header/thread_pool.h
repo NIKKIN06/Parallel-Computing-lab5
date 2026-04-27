@@ -44,7 +44,7 @@ private:
         }
     }
 public:
-    ThreadPool(size_t num_threads = 8) : stop(false)
+    ThreadPool(size_t num_threads = std::thread::hardware_concurrency()) : stop(false)
     {
         for (size_t i = 0; i < num_threads; ++i)
         {

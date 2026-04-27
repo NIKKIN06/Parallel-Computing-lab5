@@ -2,14 +2,6 @@
 
 using namespace std;
 
-std::string Server::getCurrentTime()
-{
-	auto now = chrono::current_zone()->to_local(chrono::system_clock::now());
-	std::string time = format("{:%T}", now);
-
-	return time;
-}
-
 std::string Server::formHttpResponse(std::string statusCode, std::string content)
 {
 	return "HTTP/1.1 " + statusCode + "\r\n"
@@ -24,14 +16,14 @@ Server::Server()
 	WSADATA wsaData;
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 	{
-		cerr << "[Main Thread] [" << getCurrentTime() << "] WinSock initialization ERROR!\n";
+		cerr << "[Main Thread] WinSock initialization ERROR!\n";
 		return;
 	}
 
 	serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (serverSocket == INVALID_SOCKET)
 	{
-		cerr << "[Main Thread] [" << getCurrentTime() << "] Socket creation ERROR!\n";
+		cerr << "[Main Thread] Socket creation ERROR!\n";
 		WSACleanup();
 		return;
 	}
@@ -43,7 +35,7 @@ Server::Server()
 
 	if (::bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
 	{
-		cerr << "[Main Thread] [" << getCurrentTime() << "] Bind ERROR: " << WSAGetLastError() << "\n";
+		cerr << "[Main Thread] Bind ERROR: " << WSAGetLastError() << "\n";
 		closesocket(serverSocket);
 		WSACleanup();
 		return;
@@ -51,13 +43,13 @@ Server::Server()
 
 	if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
-		cerr << "[Main Thread] [" << getCurrentTime() << "] Listen ERROR: " << WSAGetLastError() << "\n";
+		cerr << "[Main Thread] Listen ERROR: " << WSAGetLastError() << "\n";
 		closesocket(serverSocket);
 		WSACleanup();
 		return;
 	}
 
-	cout << "[Main Thread] [" << getCurrentTime() << "] Server has been launched! Waiting for connections on PORT " << PORT << "...\n\n";
+	cout << "[Main Thread] Server has been launched! Waiting for connections on PORT " << PORT << "...\n\n";
 }
 
 Server::~Server()
@@ -68,50 +60,58 @@ Server::~Server()
 
 void Server::handleClient(SOCKET clientSocket)
 {
-	char buffer[4096] = { 0 };
+	char buffer[4096];
+	std::string request;
+	int bytesReceived;
 
-	int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-
-	if (bytesReceived > 0)
+	while (true)
 	{
-		std::string request(buffer);
+		bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+		if (bytesReceived > 0)
+		{
+			buffer[bytesReceived] = '\0';
+			request.append(buffer, bytesReceived);
+
+			if (request.find("\r\n\r\n") != std::string::npos)
+			{
+				break;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (!request.empty())
+	{
 		std::istringstream requestStream(request);
 		std::string method, path, protocol;
-
 		requestStream >> method >> path >> protocol;
 
-		cout << "[Main Thread] Request: " << method << " " << path << "\n";
-
-		if (path == "/")
-		{
-			path = "/index.html";
-		}
-
+		if (path == "/") path = "/index.html";
 		std::string filePath = "./public" + path;
 
-		ifstream file(filePath, ios::in | ios::binary);
 		std::string httpResponse;
+		std::ifstream file(filePath, std::ios::in | std::ios::binary);
 
 		if (file.is_open())
 		{
 			std::ostringstream fileContentStream;
 			fileContentStream << file.rdbuf();
-			std::string fileContent = fileContentStream.str();
+			httpResponse = formHttpResponse("200 OK", fileContentStream.str());
 			file.close();
-
-			httpResponse = formHttpResponse("200 OK", fileContent);
 		}
 		else
 		{
 			std::string errorHtml = "<html><body><h1>404 Not Found</h1></body></html>";
 			httpResponse = formHttpResponse("404 Not Found", errorHtml);
-
-			cout << "[Main Thread] File not found. Sending 404.\n";
 		}
 
-		send(clientSocket, httpResponse.c_str(), httpResponse.size(), 0);
+		send(clientSocket, httpResponse.c_str(), (int)httpResponse.size(), 0);
 	}
 
+	shutdown(clientSocket, SD_BOTH);
 	closesocket(clientSocket);
 }
 
@@ -124,21 +124,15 @@ void Server::acceptConnection()
 
 		SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddress, &clientAddressSize);
 
+		//DWORD timeout = 500;
+		//setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+		//setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
+		
 		if (clientSocket == INVALID_SOCKET)
 		{
-			cerr << "[Main Thread] [" << getCurrentTime() << "] Accept ERROR: " << WSAGetLastError() << "\n";
+			cerr << "[Main Thread] Accept ERROR: " << WSAGetLastError() << "\n";
 			continue;
 		}
-
-		//int currentClientId = clientIdCounter++;
-
-		char clientIp[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &clientAddress.sin_addr, clientIp, INET_ADDRSTRLEN);
-		int clientPort = ntohs(clientAddress.sin_port);
-
-		cout << "[Main Thread] Accepted connection from IP: " << clientIp << ", Port: " << clientPort /* << " -> Assigned Client ID: #" << currentClientId */ << "\n";
-
-		cout << "[Main Thread] Sending to ThreadPool.\n";
 
 		pool.add_task([this, clientSocket]()
 			{
